@@ -41,5 +41,21 @@ This repository documents a progressive, multi-phase penetration testing engagem
 * **Execution:** Intercepted the POST request using Burp Suite and manipulated the `email` parameter with a crafted SQL injection payload to alter the backend query logic.
 * **Findings:** Successfully bypassed the authentication mechanism, granting unauthorized administrative access to the application dashboard.
 * **Post-Exploitation Note:** While this specific vector relied on a known administrative email, real-world execution would utilize OSINT for email enumeration or a tautology payload (`' OR 1=1 --`) to force evaluation of the first database index (typically UID 1 / Admin).
+
+### Phase 4: Active Exploitation & Local File Inclusion (LFI) via XXE
+**Objective:** Exploit an insecure XML parser to read arbitrary local files from the host container, demonstrating a path to infrastructure compromise.
+
+* **Target Endpoint:** B2B Customer Complaint File Upload (`POST /file-upload`)
+* **Vulnerability Type:** XML External Entity (XXE) Injection (CWE-611)
+* **CVSS v3.1 Score:** 7.5 (High)
+* **Vulnerable Component:** Node.js `libxmljs` version ~0.18
+* **Attack Vector:** * The `/file-upload` endpoint's core business logic is deprecated and programmed to return an HTTP `410 Gone` error. 
+  * However, the underlying application framework parses incoming XML payloads *before* generating this rejection response. Furthermore, the error handler explicitly reflects the parsed XML string back to the client.
+* **Execution:**
+  1. Intercepted a standard `multipart/form-data` file upload request to `/file-upload` using Burp Suite.
+  2. Manipulated the `Content-Type` of the specific form boundary, altering it to `text/xml`.
+  3. Injected a crafted XML payload containing a malicious Document Type Definition (DTD). The DTD defined an external entity (`&xxe;`) pointing to the container's local file system (`file:///etc/passwd`).
+* **Findings:** The backend `libxmljs` parser failed to disable external entity resolution by default. It parsed the malicious DTD, retrieved the contents of the target file, and reflected the contents of `/etc/passwd` in the HTTP `410` error response body. This confirms successful Local File Inclusion (LFI).
+
 ---
 *Engagement ongoing. Further phases will be documented as vulnerabilities are mapped and exploited.*
